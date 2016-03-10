@@ -24,7 +24,8 @@
 
 GSRendererHW::GSRendererHW(GSTextureCache* tc)
 	: m_width(1280)
-	, m_height(1024)
+	, m_height(1280)
+	, m_min_height(0)
 	, m_skip(0)
 	, m_reset(false)
 	, m_upscale_multiplier(1)
@@ -58,6 +59,7 @@ void GSRendererHW::SetScaling()
 	// GS doesn't have a specific register for the FrameBuffer height. so we get the height
 	// from physical units of the display rectangle in case the game uses a heigher value of height.
 	int fb_height = (fb_width < 1024) ? max(512, crtc_size.y) : 1024;
+	fb_height = max(fb_height, m_min_height);
 
 	int upscaled_fb_w = fb_width * m_upscale_multiplier;
 	int upscaled_fb_h = fb_height * m_upscale_multiplier;
@@ -569,6 +571,8 @@ void GSRendererHW::Draw()
 		GL_INS("ERROR: RT height is too small only %d but require %d", m_height, m_upscale_multiplier * r.w);
 	}
 #endif
+	// Automatically resize to the smallest height
+	m_min_height = r.w;
 
 	if(fm != 0xffffffff && rt)
 	{
