@@ -631,6 +631,21 @@ void GSRendererHW::Draw()
 #endif
 	}
 
+	if (r.w > 1024) {
+		// fprintf(stderr, "H %d => %d\n", r.y, r.w);
+
+		// FMV are blitted outside "far" away of the standard RT.
+		// The idea is to do the rendering inside the texture itself.
+		// Texture data will be invalidated by InvalidateVideoMem but we still
+		// need to retrieve the rendered pixels.
+		// Note: if it is too slow a possibility will be to blit manually the rendering
+		// into the texture
+
+		// Lots of condition to avoid to trigger the code
+		if ((m_vt.m_primclass == GS_SPRITE_CLASS) && (m_vertex.next == 2) && PRIM->TME && !PRIM->ABE)
+			m_tc->Read(rt, r);
+	}
+
 	#ifdef DISABLE_HW_TEXTURE_CACHE
 
 	if (rt)
