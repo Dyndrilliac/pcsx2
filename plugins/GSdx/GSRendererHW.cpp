@@ -24,7 +24,7 @@
 
 GSRendererHW::GSRendererHW(GSTextureCache* tc)
 	: m_width(1280)
-	, m_height(1280)
+	, m_height(1024)
 	, m_min_height(0)
 	, m_skip(0)
 	, m_reset(false)
@@ -196,7 +196,7 @@ void GSRendererHW::InvalidateLocalMem(const GIFRegBITBLTBUF& BITBLTBUF, const GS
 	// printf("[%d] InvalidateLocalMem %d,%d - %d,%d %05x (%d)\n", (int)m_perfmon.GetFrame(), r.left, r.top, r.right, r.bottom, (int)BITBLTBUF.SBP, (int)BITBLTBUF.SPSM);
 
 	if(clut) return; // FIXME
-		
+
 	m_tc->InvalidateLocalMem(m_mem.GetOffset(BITBLTBUF.SBP, BITBLTBUF.SBW, BITBLTBUF.SPSM), r);
 }
 
@@ -382,7 +382,7 @@ void GSRendererHW::Draw()
 	if(PRIM->TME)
 	{
 		/*
-		
+
 		// m_tc->LookupSource will mess with the palette, should not, but we do this after, until it is sorted out
 
 		if(GSLocalMemory::m_psm[context->TEX0.PSM].pal > 0)
@@ -571,8 +571,10 @@ void GSRendererHW::Draw()
 		GL_INS("ERROR: RT height is too small only %d but require %d", m_height, m_upscale_multiplier * r.w);
 	}
 #endif
+#if 0
 	// Automatically resize to the smallest height
 	m_min_height = r.w;
+#endif
 
 	if(fm != 0xffffffff && rt)
 	{
@@ -635,6 +637,7 @@ void GSRendererHW::Draw()
 #endif
 	}
 
+#if 0
 	if (r.w > 1024) {
 		// fprintf(stderr, "H %d => %d\n", r.y, r.w);
 
@@ -653,6 +656,7 @@ void GSRendererHW::Draw()
 			m_tc->InvalidateVideoMemSubTarget(rt);
 		}
 	}
+#endif
 
 	#ifdef DISABLE_HW_TEXTURE_CACHE
 
@@ -723,6 +727,7 @@ void GSRendererHW::Hacks::SetGameCRC(const CRC::Game& game)
 		// success
 		m_oi = &GSRendererHW::OI_DoubleHalfClear;
 	}
+	m_oi = &GSRendererHW::OI_BlitFMV;
 }
 
 bool GSRendererHW::OI_DoubleHalfClear(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* t)
@@ -773,6 +778,58 @@ bool GSRendererHW::OI_DoubleHalfClear(GSTexture* rt, GSTexture* ds, GSTextureCac
 	return true;
 }
 
+bool GSRendererHW::OI_BlitFMV(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* tex)
+{
+	GSVector4i r = GSVector4i(m_vt.m_min.p.xyxy(m_vt.m_max.p)).rintersect(GSVector4i(m_context->scissor.in));
+
+	if (r.w > 1024 && (m_vt.m_primclass == GS_SPRITE_CLASS) && (m_vertex.next == 2) && PRIM->TME && !PRIM->ABE) {
+		// Manually blit the texture to the rt
+#if 0
+		GSVector4& t = m_vt.m_min.t;
+		fprintf(stderr, "tmin %f %f %f %f\n", t.x, t.y, t.z, t.w);
+		t = m_vt.m_max.t;
+		fprintf(stderr, "tmax %f %f %f %f\n", t.x, t.y, t.z, t.w);
+#endif
+
+		int tw = (int)(1 << m_context->TEX0.TW);
+		int th = (int)(1 << m_context->TEX0.TH);
+		GSVector4 sRect;
+		sRect.x = m_vt.m_min.t.x / tw;
+		sRect.y = m_vt.m_min.t.y / th;
+		sRect.z = m_vt.m_max.t.x / tw;
+		sRect.w = m_vt.m_max.t.y / th;
+
+		const GSVector2& rtscale = rt->GetScale();
+		float dtw = (m_vt.m_max.t.x - m_vt.m_min.t.x) * rtscale.x;
+		float dth = (m_vt.m_max.t.y - m_vt.m_min.t.y) * rtscale.y * 0.5f;
+		GSVector4 dRect(0.0f, 0.0f, dtw, dth);
+
+		if (m_vt.m_min.t.y < 1.0f) {
+			// Blit in the beginning
+			//fprintf(stderr, "Begin\n");
+
+			//fprintf(stderr, "src %f %f %f %f\n", sRect.x, sRect.y, sRect.z, sRect.w);
+			//fprintf(stderr, "dst %f %f %f %f\n", dRect.x, dRect.y, dRect.z, dRect.w);
+			m_dev->StretchRect(tex->m_texture, sRect, rt, dRect);
+		} else {
+			// Blit in the middle
+			//fprintf(stderr, "Middle\n");
+			dRect.y += dth;
+			dRect.w += dth;
+
+			//fprintf(stderr, "src %f %f %f %f\n", sRect.x, sRect.y, sRect.z, sRect.w);
+			//fprintf(stderr, "dst %f %f %f %f\n", dRect.x, dRect.y, dRect.z, dRect.w);
+			m_dev->StretchRect(tex->m_texture, sRect, rt, dRect);
+		}
+
+		m_skip = 1; // skip next draw
+		return false; // skip current draw
+	}
+
+	// Nothing to see keep going
+	return true;
+}
+
 // OI (others input?/implementation?) hacks replace current draw call
 
 bool GSRendererHW::OI_FFXII(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* t)
@@ -806,9 +863,9 @@ bool GSRendererHW::OI_FFXII(GSTexture* rt, GSTexture* ds, GSTextureCache::Source
 				{
 					int x = (v->XYZ.X - ox) >> 4;
 					int y = (v->XYZ.Y - oy) >> 4;
-					
+
 					if (x < 0 || x >= 448 || y < 0 || y >= (int)lines) return false; // le sigh
-					
+
 					video[(y << 8) + (y << 7) + (y << 6) + x] = v->RGBAQ.u32[0];
 				}
 
@@ -894,7 +951,7 @@ bool GSRendererHW::OI_MetalSlug6(GSTexture* rt, GSTexture* ds, GSTextureCache::S
 	}
 
 	m_vt.Update(m_vertex.buff, m_index.buff, m_index.tail, m_vt.m_primclass);
-	
+
 	return true;
 }
 
@@ -935,7 +992,7 @@ bool GSRendererHW::OI_SimpsonsGame(GSTexture* rt, GSTexture* ds, GSTextureCache:
 		// instead of just simply drawing a full height 512x512 sprite to clear the z buffer,
 		// it uses a 512x256 sprite only, yet it is still able to fill the whole surface with zeros,
 		// how? by using a render target that overlaps with the lower half of the z buffer...
-		
+
 		// TODO: tony hawk pro skater 4 same problem, the empty half is not visible though, painted over fully
 
 		m_dev->ClearDepth(ds, 0);
