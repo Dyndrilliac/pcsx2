@@ -637,7 +637,7 @@ void GSRendererHW::Draw()
 #endif
 	}
 
-#if 0
+#if 1
 	if (r.w > 1024) {
 		// fprintf(stderr, "H %d => %d\n", r.y, r.w);
 
@@ -650,7 +650,7 @@ void GSRendererHW::Draw()
 
 		// Lots of condition to avoid to trigger the code
 		if ((m_vt.m_primclass == GS_SPRITE_CLASS) && (m_vertex.next == 2) && PRIM->TME && !PRIM->ABE) {
-			m_tc->Read(rt, r);
+			//m_tc->Read(rt, r);
 			// FIXME maybe do it before the draw but need the validity...
 			// We need to blit the sub rt into the main rt
 			m_tc->InvalidateVideoMemSubTarget(rt);
