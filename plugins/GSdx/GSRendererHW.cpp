@@ -785,7 +785,7 @@ bool GSRendererHW::OI_DoubleHalfClear(GSTexture* rt, GSTexture* ds, GSTextureCac
 
 bool GSRendererHW::OI_BlitFMV(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* tex)
 {
-	GSVector4i r = GSVector4i(m_vt.m_min.p.xyxy(m_vt.m_max.p)).rintersect(GSVector4i(m_context->scissor.in));
+	const GSVector4i r = GSVector4i(m_vt.m_min.p.xyxy(m_vt.m_max.p)).rintersect(GSVector4i(m_context->scissor.in));
 
 	if (r.w > 1024 && (m_vt.m_primclass == GS_SPRITE_CLASS) && (m_vertex.next == 2) && PRIM->TME && !PRIM->ABE) {
 		GL_PUSH("OI_BlitFMV");
@@ -816,15 +816,43 @@ bool GSRendererHW::OI_BlitFMV(GSTexture* rt, GSTexture* ds, GSTextureCache::Sour
 		ASSERT(m_context->TEX0.TBP0 > m_context->FRAME.Block());
 		int offset = (m_context->TEX0.TBP0 - m_context->FRAME.Block()) / m_context->TEX0.TBW;
 		//fprintf(stderr, "offset %d\n", offset);
+		GSVector4i r_texture(r);
+		r_texture.y -= offset;
+		r_texture.w -= offset;
 
-		GSVector4 dRect(r.x, r.y - offset, r.z, r.w - offset);
+		GSVector4 dRect(r_texture);
 
 		//fprintf(stderr, "src %f %f %f %f\n", sRect.x, sRect.y, sRect.z, sRect.w);
 		//fprintf(stderr, "dst %f %f %f %f\n", dRect.x, dRect.y, dRect.z, dRect.w);
 		//glTextureBarrier();
 		m_dev->StretchRect(tex->m_texture, sRect, tex->m_texture, dRect);
 
-		tex->m_complete = true;
+		//tex->m_complete = true;
+
+		// Copy back the texture into the GS mem. I don't know why but it will be
+		// reuploaded again later
+		GSVector4 src = GSVector4(r_texture) * GSVector4(tex->m_texture->GetScale()).xyxy() / GSVector4(tex->m_texture->GetSize()).xyxy();
+
+		if(GSTexture* offscreen = m_dev->CopyOffscreen(tex->m_texture, src, 1024 /*r.width()*/, 1024/*r.height()*/))
+		{
+			GSTexture::GSMap m;
+
+			if(offscreen->Map(m))
+			{
+				// TODO: block level write
+
+				//GSOffset* off = m_context.renderer->m_mem.GetOffset(TEX0.TBP0, TEX0.TBW, TEX0.PSM);
+				GSOffset* off = m_context->offset.tex;
+
+				ASSERT(m_context->TEX0.PSM == PSM_PSMCT32);
+				m_mem.WritePixel32(m.bits, m.pitch, off, r_texture);
+
+				offscreen->Unmap();
+			}
+
+			// FIXME invalidate data
+			m_dev->Recycle(offscreen);
+		}
 
 #else
 
