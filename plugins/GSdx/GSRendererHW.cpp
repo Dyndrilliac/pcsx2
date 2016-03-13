@@ -485,6 +485,9 @@ void GSRendererHW::Draw()
 
 	if(m_hacks.m_oi && !(this->*m_hacks.m_oi)(rt_tex, ds_tex, tex))
 	{
+		// FIMXE temporary hack
+		m_tc->InvalidateVideoMemSubTarget(rt);
+
 		s_n += 1; // keep counter sync
 		GL_POP();
 		return;
@@ -657,6 +660,8 @@ void GSRendererHW::Draw()
 		}
 	}
 #endif
+	// FIXME: impact ?
+	//m_tc->InvalidateVideoMemSubTarget(rt);
 
 	#ifdef DISABLE_HW_TEXTURE_CACHE
 
@@ -783,6 +788,11 @@ bool GSRendererHW::OI_BlitFMV(GSTexture* rt, GSTexture* ds, GSTextureCache::Sour
 	GSVector4i r = GSVector4i(m_vt.m_min.p.xyxy(m_vt.m_max.p)).rintersect(GSVector4i(m_context->scissor.in));
 
 	if (r.w > 1024 && (m_vt.m_primclass == GS_SPRITE_CLASS) && (m_vertex.next == 2) && PRIM->TME && !PRIM->ABE) {
+		GL_PUSH("OI_BlitFMV");
+
+		// The draw is done past the RT at the location of the texture. To avoid various upscaling mess
+		// We will blit the data from the top to the bottom of the texture.
+
 		// Manually blit the texture to the rt
 #if 0
 		GSVector4& t = m_vt.m_min.t;
@@ -791,6 +801,8 @@ bool GSRendererHW::OI_BlitFMV(GSTexture* rt, GSTexture* ds, GSTextureCache::Sour
 		fprintf(stderr, "tmax %f %f %f %f\n", t.x, t.y, t.z, t.w);
 #endif
 
+		//fprintf(stderr, "rect %d %d %d %d\n", r.x, r.y, r.z, r.w);
+
 		int tw = (int)(1 << m_context->TEX0.TW);
 		int th = (int)(1 << m_context->TEX0.TH);
 		GSVector4 sRect;
@@ -798,6 +810,23 @@ bool GSRendererHW::OI_BlitFMV(GSTexture* rt, GSTexture* ds, GSTextureCache::Sour
 		sRect.y = m_vt.m_min.t.y / th;
 		sRect.z = m_vt.m_max.t.x / tw;
 		sRect.w = m_vt.m_max.t.y / th;
+
+#if 1
+		//GSOffset* offset = m_context->offset.tex;
+		ASSERT(m_context->TEX0.TBP0 > m_context->FRAME.Block());
+		int offset = (m_context->TEX0.TBP0 - m_context->FRAME.Block()) / m_context->TEX0.TBW;
+		//fprintf(stderr, "offset %d\n", offset);
+
+		GSVector4 dRect(r.x, r.y - offset, r.z, r.w - offset);
+
+		//fprintf(stderr, "src %f %f %f %f\n", sRect.x, sRect.y, sRect.z, sRect.w);
+		//fprintf(stderr, "dst %f %f %f %f\n", dRect.x, dRect.y, dRect.z, dRect.w);
+		//glTextureBarrier();
+		m_dev->StretchRect(tex->m_texture, sRect, tex->m_texture, dRect);
+
+		tex->m_complete = true;
+
+#else
 
 		const GSVector2& rtscale = rt->GetScale();
 		float dtw = (m_vt.m_max.t.x - m_vt.m_min.t.x) * rtscale.x;
@@ -823,7 +852,12 @@ bool GSRendererHW::OI_BlitFMV(GSTexture* rt, GSTexture* ds, GSTextureCache::Sour
 		}
 
 		m_skip = 1; // skip next draw
+#endif
+
+		GL_POP();
+
 		return false; // skip current draw
+
 	}
 
 	// Nothing to see keep going
