@@ -25,13 +25,12 @@
 
 void GSWndGL::PopulateGlFunction()
 {
-	*(void**)&(gl_ActiveTexture) = GetProcAddress("glActiveTexture");
 	*(void**)&(gl_BlendColor) = GetProcAddress("glBlendColor");
 
 	// Load mandatory function pointer
-#define GL_EXT_LOAD_OPT(ext) *(void**)&(ext) = GetProcAddress(#ext, true)
+#define GL_EXT_LOAD(ext)     *(void**)&(ext) = GetProcAddress(#ext, false)
 	// Load extra function pointer
-#define GL_EXT_LOAD(ext)     *(void**)&(ext) = GetProcAddress(#ext, true)
+#define GL_EXT_LOAD_OPT(ext) *(void**)&(ext) = GetProcAddress(#ext, true)
 
 	GL_EXT_LOAD(glBlendEquationSeparate);
 	GL_EXT_LOAD(glBlendFuncSeparate);
@@ -61,11 +60,9 @@ void GSWndGL::PopulateGlFunction()
 	GL_EXT_LOAD(glFramebufferTexture2D);
 	GL_EXT_LOAD(glGenBuffers);
 	GL_EXT_LOAD(glGenFramebuffers);
-	GL_EXT_LOAD(glGenSamplers);
 	GL_EXT_LOAD(glGenVertexArrays);
 	GL_EXT_LOAD(glGetBufferParameteriv);
 	GL_EXT_LOAD(glGetDebugMessageLogARB);
-	GL_EXT_LOAD_OPT(glDebugMessageCallback);
 	GL_EXT_LOAD(glGetProgramInfoLog);
 	GL_EXT_LOAD(glGetProgramiv);
 	GL_EXT_LOAD(glGetShaderiv);
@@ -87,34 +84,34 @@ void GSWndGL::PopulateGlFunction()
 	GL_EXT_LOAD(glClientWaitSync);
 	GL_EXT_LOAD(glFlushMappedBufferRange);
 	// Query object
-	GL_EXT_LOAD(glBeginQuery);
-	GL_EXT_LOAD(glEndQuery);
-	GL_EXT_LOAD(glGetQueryiv);
-	GL_EXT_LOAD(glGetQueryObjectiv);
-	GL_EXT_LOAD(glGetQueryObjectuiv);
-	GL_EXT_LOAD(glQueryCounter);
-	GL_EXT_LOAD(glGetQueryObjecti64v);
-	GL_EXT_LOAD(glGetQueryObjectui64v);
-	GL_EXT_LOAD(glGetInteger64v);
+	GL_EXT_LOAD_OPT(glBeginQuery);
+	GL_EXT_LOAD_OPT(glEndQuery);
+	GL_EXT_LOAD_OPT(glGetQueryiv);
+	GL_EXT_LOAD_OPT(glGetQueryObjectiv);
+	GL_EXT_LOAD_OPT(glGetQueryObjectuiv);
+	GL_EXT_LOAD_OPT(glQueryCounter);
+	GL_EXT_LOAD_OPT(glGetQueryObjecti64v);
+	GL_EXT_LOAD_OPT(glGetQueryObjectui64v);
+	GL_EXT_LOAD_OPT(glGetInteger64v);
+	GL_EXT_LOAD_OPT(glCreateQueries);
+	GL_EXT_LOAD_OPT(glDeleteQueries);
 	// GL4.0
 	GL_EXT_LOAD_OPT(glBlendEquationSeparateiARB);
 	GL_EXT_LOAD_OPT(glBlendFuncSeparateiARB);
 	// GL4.1
-	GL_EXT_LOAD_OPT(glCreateShaderProgramv);
-	GL_EXT_LOAD_OPT(glBindProgramPipeline);
-	GL_EXT_LOAD_OPT(glDeleteProgramPipelines);
-	GL_EXT_LOAD_OPT(glGenProgramPipelines);
-	GL_EXT_LOAD_OPT(glGetProgramPipelineiv);
-	GL_EXT_LOAD_OPT(glGetProgramPipelineInfoLog);
-	GL_EXT_LOAD_OPT(glValidateProgramPipeline);
-	GL_EXT_LOAD_OPT(glUseProgramStages);
-	GL_EXT_LOAD_OPT(glProgramUniform1i); // but no GL4.2
+	GL_EXT_LOAD(glCreateShaderProgramv);
+	GL_EXT_LOAD(glBindProgramPipeline);
+	GL_EXT_LOAD(glDeleteProgramPipelines);
+	GL_EXT_LOAD(glGetProgramPipelineiv);
+	GL_EXT_LOAD(glGetProgramPipelineInfoLog);
+	GL_EXT_LOAD(glValidateProgramPipeline);
+	GL_EXT_LOAD(glUseProgramStages);
 	GL_EXT_LOAD_OPT(glGetProgramBinary);
 	GL_EXT_LOAD_OPT(glViewportIndexedf);
 	GL_EXT_LOAD_OPT(glViewportIndexedfv);
 	GL_EXT_LOAD_OPT(glScissorIndexed);
 	GL_EXT_LOAD_OPT(glScissorIndexedv);
-	// NO GL4.1
+	// NO GL4.1 (or broken driver...)
 	GL_EXT_LOAD(glDeleteProgram);
 	GL_EXT_LOAD(glDeleteShader);
 	GL_EXT_LOAD(glCompileShader);
@@ -126,52 +123,54 @@ void GSWndGL::PopulateGlFunction()
 	// GL4.2
 	GL_EXT_LOAD_OPT(glBindImageTexture);
 	GL_EXT_LOAD_OPT(glMemoryBarrier);
-	GL_EXT_LOAD(glTexStorage2D);
 	// GL4.3
-	GL_EXT_LOAD_OPT(glCopyImageSubData);
+	GL_EXT_LOAD(glCopyImageSubData);
 	GL_EXT_LOAD_OPT(glInvalidateTexImage);
-	GL_EXT_LOAD_OPT(glPushDebugGroup);
-	GL_EXT_LOAD_OPT(glPopDebugGroup);
-	GL_EXT_LOAD_OPT(glDebugMessageInsert);
-	GL_EXT_LOAD_OPT(glDebugMessageControl);
+	GL_EXT_LOAD(glPushDebugGroup);
+	GL_EXT_LOAD(glPopDebugGroup);
+	GL_EXT_LOAD(glDebugMessageInsert);
+	GL_EXT_LOAD(glDebugMessageControl);
+	GL_EXT_LOAD(glDebugMessageCallback);
+	GL_EXT_LOAD(glObjectLabel);
+	GL_EXT_LOAD(glObjectPtrLabel);
 	// GL4.4
 	GL_EXT_LOAD_OPT(glClearTexImage);
-	GL_EXT_LOAD_OPT(glBufferStorage);
+	GL_EXT_LOAD_OPT(glClearTexSubImage);
+	GL_EXT_LOAD(glBufferStorage);
 
 	// GL4.5
-	GL_EXT_LOAD_OPT(glCreateTextures);
-	GL_EXT_LOAD_OPT(glTextureStorage2D);
-	GL_EXT_LOAD_OPT(glTextureSubImage2D);
-	GL_EXT_LOAD_OPT(glCopyTextureSubImage2D);
-	GL_EXT_LOAD_OPT(glBindTextureUnit);
-	GL_EXT_LOAD_OPT(glGetTextureImage);
-	GL_EXT_LOAD_OPT(glTextureParameteri);
+	GL_EXT_LOAD(glCreateTextures);
+	GL_EXT_LOAD(glTextureStorage2D);
+	GL_EXT_LOAD(glTextureSubImage2D);
+	GL_EXT_LOAD(glCopyTextureSubImage2D);
+	GL_EXT_LOAD(glBindTextureUnit);
+	GL_EXT_LOAD(glGetTextureImage);
+	GL_EXT_LOAD(glTextureParameteri);
+	GL_EXT_LOAD(glGenerateTextureMipmap);
 
-	GL_EXT_LOAD_OPT(glCreateFramebuffers);
-	GL_EXT_LOAD_OPT(glClearNamedFramebufferfv);
-	GL_EXT_LOAD_OPT(glClearNamedFramebufferuiv);
-	GL_EXT_LOAD_OPT(glClearNamedFramebufferiv);
-	GL_EXT_LOAD_OPT(glNamedFramebufferTexture);
-	GL_EXT_LOAD_OPT(glNamedFramebufferDrawBuffers);
-	GL_EXT_LOAD_OPT(glNamedFramebufferReadBuffer);
-	GL_EXT_LOAD_OPT(glCheckNamedFramebufferStatus);
+	GL_EXT_LOAD(glCreateFramebuffers);
+	GL_EXT_LOAD(glClearNamedFramebufferfv);
+	GL_EXT_LOAD(glClearNamedFramebufferuiv);
+	GL_EXT_LOAD(glClearNamedFramebufferiv);
+	GL_EXT_LOAD(glNamedFramebufferTexture);
+	GL_EXT_LOAD(glNamedFramebufferDrawBuffers);
+	GL_EXT_LOAD(glNamedFramebufferReadBuffer);
+	GL_EXT_LOAD_OPT(glNamedFramebufferParameteri);
+	GL_EXT_LOAD(glCheckNamedFramebufferStatus);
 
-	GL_EXT_LOAD_OPT(glCreateBuffers);
-	GL_EXT_LOAD_OPT(glNamedBufferStorage);
-	GL_EXT_LOAD_OPT(glNamedBufferData);
-	GL_EXT_LOAD_OPT(glNamedBufferSubData);
-	GL_EXT_LOAD_OPT(glMapNamedBuffer);
-	GL_EXT_LOAD_OPT(glMapNamedBufferRange);
-	GL_EXT_LOAD_OPT(glUnmapNamedBuffer);
-	GL_EXT_LOAD_OPT(glFlushMappedNamedBufferRange);
+	GL_EXT_LOAD(glCreateBuffers);
+	GL_EXT_LOAD(glNamedBufferStorage);
+	GL_EXT_LOAD(glNamedBufferData);
+	GL_EXT_LOAD(glNamedBufferSubData);
+	GL_EXT_LOAD(glMapNamedBuffer);
+	GL_EXT_LOAD(glMapNamedBufferRange);
+	GL_EXT_LOAD(glUnmapNamedBuffer);
+	GL_EXT_LOAD(glFlushMappedNamedBufferRange);
 
-	GL_EXT_LOAD_OPT(glCreateSamplers);
-	GL_EXT_LOAD_OPT(glCreateProgramPipelines);
+	GL_EXT_LOAD(glCreateSamplers);
+	GL_EXT_LOAD(glCreateProgramPipelines);
 
-	GL_EXT_LOAD_OPT(glClipControl);
-	GL_EXT_LOAD_OPT(glTextureBarrier);
-
-	if (glCreateFramebuffers == NULL) {
-		Emulate_DSA::Init();
-	}
+	GL_EXT_LOAD(glClipControl);
+	GL_EXT_LOAD(glTextureBarrier);
+	GL_EXT_LOAD_OPT(glGetTextureSubImage);
 }

@@ -14,7 +14,7 @@ endif()
 
 # plugin name
 set(Output spu2x-2.0.0)
-if (Linux)
+if (UNIX AND NOT APPLE)
 	if (SDL2_API)
 		set(spu2xFinalFlags "-DSPU2X_SDL2")
 	else()
@@ -114,4 +114,8 @@ else()
     )
 endif()
 
-add_pcsx2_plugin(${Output} "${spu2xFinalSources}" "${spu2xFinalLibs}" "${spu2xFinalFlags}")
+if(BUILTIN_SPU2)
+    add_pcsx2_lib(${Output} "${spu2xFinalSources}" "${spu2xFinalLibs}" "${spu2xFinalFlags}")
+else()
+    add_pcsx2_plugin(${Output} "${spu2xFinalSources}" "${spu2xFinalLibs}" "${spu2xFinalFlags}")
+endif()

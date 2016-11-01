@@ -380,8 +380,11 @@ GSCapture::GSCapture()
 	: m_capturing(false), m_frame(0)
 	  , m_out_dir("/tmp/GSdx_Capture") // FIXME Later add an option
 {
-	m_out_dir = theApp.GetConfig("capture_out_dir", "/tmp/GSdx_Capture");
-	m_threads = theApp.GetConfig("capture_threads", 4);
+	m_out_dir = theApp.GetConfigS("capture_out_dir");
+	m_threads = theApp.GetConfigI("capture_threads");
+#if defined(__unix__)
+	m_compression_level = theApp.GetConfigI("png_compression_level");
+#endif
 }
 
 GSCapture::~GSCapture()
@@ -478,24 +481,19 @@ bool GSCapture::BeginCapture(float fps, GSVector2i recomendedResolution, float a
 
 	CComQIPtr<IGSSource>(m_src)->DeliverNewSegment();
 
-#elif __linux__
+#elif defined(__unix__)
 	// Note I think it doesn't support multiple depth creation
 	GSmkdir(m_out_dir.c_str());
 
 	// Really cheap recording
 	m_frame = 0;
 	// Add option !!!
-	m_size.x = theApp.GetConfig("capture_resx", 1280);
-	m_size.y = theApp.GetConfig("capture_resy", 1024);
+	m_size.x = theApp.GetConfigI("CaptureWidth");
+	m_size.y = theApp.GetConfigI("CaptureHeight");
 
-	m_compression_level = theApp.GetConfig("png_compression_level", Z_BEST_SPEED);
-
-#ifdef __linux__
 	for(int i = 0; i < m_threads; i++) {
-		m_workers.push_back(new GSPng::Worker());
+		m_workers.push_back(std::unique_ptr<GSPng::Worker>(new GSPng::Worker()));
 	}
-#endif
-
 #endif
 
 	m_capturing = true;
@@ -523,7 +521,7 @@ bool GSCapture::DeliverFrame(const void* bits, int pitch, bool rgba)
 		return true;
 	}
 
-#elif __linux__
+#elif defined(__unix__)
 
 	std::string out_file = m_out_dir + format("/frame.%010d.png", m_frame);
 	//GSPng::Save(GSPng::RGB_PNG, out_file, (uint8*)bits, m_size.x, m_size.y, pitch, m_compression_level);
@@ -556,10 +554,12 @@ bool GSCapture::EndCapture()
 		m_graph = NULL;
 	}
 
-#elif __linux__
+#elif defined(__unix__)
+	// XXX Might not be necessary to wait
 	for(size_t i = 0; i < m_workers.size(); i++) {
 		m_workers[i]->Wait();
 	}
+	m_workers.clear();
 
 	m_frame = 0;
 

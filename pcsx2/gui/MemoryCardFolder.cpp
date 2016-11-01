@@ -32,6 +32,8 @@ FolderMemoryCard::FolderMemoryCard() {
 	m_performFileWrites = false;
 	m_framesUntilFlush = 0;
 	m_timeLastWritten = 0;
+	m_filteringEnabled = false;
+	m_filteringString = L"";
 }
 
 void FolderMemoryCard::InitializeInternalData() {
@@ -42,12 +44,14 @@ void FolderMemoryCard::InitializeInternalData() {
 	memset( &m_backupBlock2, 0xFF, sizeof( m_backupBlock2 ) );
 	m_cache.clear();
 	m_oldDataCache.clear();
+	m_lastAccessedFile.CloseAll();
 	m_fileMetadataQuickAccess.clear();
 	m_timeLastWritten = 0;
 	m_isEnabled = false;
 	m_framesUntilFlush = 0;
-	m_lastAccessedFile.CloseAll();
 	m_performFileWrites = true;
+	m_filteringEnabled = false;
+	m_filteringString = L"";
 }
 
 bool FolderMemoryCard::IsFormatted() const {
@@ -94,6 +98,8 @@ void FolderMemoryCard::Open( const wxString& fullPath, const AppConfig::McdOptio
 	if ( disabled ) return;
 
 	m_isEnabled = true;
+	m_filteringEnabled = enableFiltering;
+	m_filteringString = filter;
 	LoadMemoryCardData( sizeInClusters, enableFiltering, filter );
 
 	SetTimeLastWrittenToNow();
@@ -111,6 +117,18 @@ void FolderMemoryCard::Close( bool flush ) {
 	m_oldDataCache.clear();
 	m_lastAccessedFile.CloseAll();
 	m_fileMetadataQuickAccess.clear();
+}
+
+bool FolderMemoryCard::ReIndex( bool enableFiltering, const wxString& filter ) {
+	if ( !m_isEnabled ) { return false; }
+
+	if ( m_filteringEnabled != enableFiltering || m_filteringString != filter ) {
+		Close();
+		Open( enableFiltering, filter );
+		return true;
+	}
+
+	return false;
 }
 
 void FolderMemoryCard::LoadMemoryCardData( const u32 sizeInClusters, const bool enableFiltering, const wxString& filter ) {
@@ -296,8 +314,6 @@ bool FilterMatches( const wxString& fileName, const wxString& filter ) {
 bool FolderMemoryCard::AddFolder( MemoryCardFileEntry* const dirEntry, const wxString& dirPath, MemoryCardFileMetadataReference* parent, const bool enableFiltering, const wxString& filter ) {
 	wxDir dir( dirPath );
 	if ( dir.IsOpened() ) {
-		const u32 dirStartCluster = dirEntry->entry.data.cluster;
-
 		wxString fileName;
 		bool hasNext;
 
@@ -733,10 +749,10 @@ bool FolderMemoryCard::ReadFromFile( u8 *dest, u32 adr, u32 dataLength ) {
 }
 
 s32 FolderMemoryCard::Read( u8 *dest, u32 adr, int size ) {
-	const u32 block = adr / BlockSizeRaw;
+	//const u32 block = adr / BlockSizeRaw;
 	const u32 page = adr / PageSizeRaw;
 	const u32 offset = adr % PageSizeRaw;
-	const u32 cluster = adr / ClusterSizeRaw;
+	//const u32 cluster = adr / ClusterSizeRaw;
 	const u32 end = offset + size;
 
 	if ( end > PageSizeRaw ) {
@@ -749,7 +765,6 @@ s32 FolderMemoryCard::Read( u8 *dest, u32 adr, int size ) {
 
 	if ( offset < PageSize ) {
 		// is trying to read (part of) an actual data block
-		const u32 dataOffset = 0;
 		const u32 dataLength = std::min( (u32)size, (u32)( PageSize - offset ) );
 
 		// if we have a cache for this page, just load from that
@@ -798,8 +813,8 @@ void FolderMemoryCard::ReadDataWithoutCache( u8* const dest, const u32 adr, cons
 }
 
 s32 FolderMemoryCard::Save( const u8 *src, u32 adr, int size ) {
-	const u32 block = adr / BlockSizeRaw;
-	const u32 cluster = adr / ClusterSizeRaw;
+	//const u32 block = adr / BlockSizeRaw;
+	//const u32 cluster = adr / ClusterSizeRaw;
 	const u32 page = adr / PageSizeRaw;
 	const u32 offset = adr % PageSizeRaw;
 	const u32 end = offset + size;
@@ -1108,9 +1123,9 @@ void FolderMemoryCard::RemoveUnchangedDataFromCache( const MemoryCardFileEntry* 
 }
 
 s32 FolderMemoryCard::WriteWithoutCache( const u8 *src, u32 adr, int size ) {
-	const u32 block = adr / BlockSizeRaw;
-	const u32 cluster = adr / ClusterSizeRaw;
-	const u32 page = adr / PageSizeRaw;
+	//const u32 block = adr / BlockSizeRaw;
+	//const u32 cluster = adr / ClusterSizeRaw;
+	//const u32 page = adr / PageSizeRaw;
 	const u32 offset = adr % PageSizeRaw;
 	const u32 end = offset + size;
 
@@ -1648,11 +1663,13 @@ void FolderMemoryCardAggregator::NextFrame( uint slot ) {
 	m_cards[slot].NextFrame();
 }
 
-void FolderMemoryCardAggregator::ReIndex( uint slot, const bool enableFiltering, const wxString& filter ) {
-	m_cards[slot].Close();
-	m_cards[slot].Open( enableFiltering, filter );
+bool FolderMemoryCardAggregator::ReIndex( uint slot, const bool enableFiltering, const wxString& filter ) {
+	if ( m_cards[slot].ReIndex( enableFiltering, filter ) ) {
+		SetFiltering( enableFiltering );
+		m_lastKnownFilter = filter;
+		return true;
+	}
 
-	SetFiltering( enableFiltering );
-	m_lastKnownFilter = filter;
+	return false;
 }
 

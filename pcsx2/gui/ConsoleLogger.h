@@ -19,10 +19,6 @@
 #include <array>
 #include <memory>
 
-BEGIN_DECLARE_EVENT_TYPES()
-	DECLARE_EVENT_TYPE(pxEvt_DockConsole, -1)
-END_DECLARE_EVENT_TYPES()
-
 static const bool EnableThreadedLoggingTest = false; //true;
 
 class LogWriteEvent;
@@ -59,11 +55,7 @@ public:
 	pxLogConsole() {}
 
 protected:
-#if wxMAJOR_VERSION >= 3
 	virtual void DoLogRecord(wxLogLevel level, const wxString &message, const wxLogRecordInfo &info);
-#else
-	virtual void DoLog(wxLogLevel level, const wxChar *szString, time_t t);
-#endif
 };
 
 
@@ -90,37 +82,6 @@ public:
 	{
 		m_done = true;
 	}
-};
-
-// --------------------------------------------------------------------------------------
-//  pxLogTextCtrl
-// --------------------------------------------------------------------------------------
-class pxLogTextCtrl : public wxTextCtrl,
-	public EventListener_CoreThread,
-	public EventListener_Plugins
-{
-protected:
-	std::unique_ptr<ScopedCoreThreadPause> m_IsPaused;
-	bool m_FreezeWrites;
-
-public:
-	pxLogTextCtrl(wxWindow* parent);
-	virtual ~pxLogTextCtrl() throw();
-
-	bool HasWriteLock() const { return m_FreezeWrites; }
-	void ConcludeIssue();
-
-#ifdef __WXMSW__
-	virtual void WriteText(const wxString& text);
-#endif
-
-protected:
-	virtual void OnThumbTrack(wxScrollWinEvent& event);
-	virtual void OnThumbRelease(wxScrollWinEvent& event);
-	virtual void OnResize( wxSizeEvent& evt );
-
-	void DispatchEvent( const CoreThreadStatus& status );
-	void DispatchEvent( const PluginEventType& evt );
 };
 
 // --------------------------------------------------------------------------------------
@@ -169,7 +130,7 @@ protected:
 
 protected:
 	ConLogConfig&	m_conf;
-	pxLogTextCtrl&	m_TextCtrl;
+	wxTextCtrl&		m_TextCtrl;
 	wxTimer			m_timer_FlushLimiter;
 	wxTimer			m_timer_FlushUnlocker;
 	ColorArray		m_ColorTable;
@@ -220,8 +181,6 @@ public:
 	ConsoleLogFrame( MainEmuFrame *pParent, const wxString& szTitle, ConLogConfig& options );
 	virtual ~ConsoleLogFrame();
 
-	virtual void DockedMove();
-
 	// Retrieves the current configuration options settings for this box.
 	// (settings change if the user moves the window or changes the font size)
 	const ConLogConfig& GetConfig() const { return m_conf; }
@@ -242,13 +201,13 @@ protected:
 
 	void OnToggleTheme(wxCommandEvent& event);
 	void OnFontSize(wxCommandEvent& event);
+	void OnAutoDock(wxCommandEvent& event);
 	void OnToggleSource(wxCommandEvent& event);
 	void OnToggleCDVDInfo(wxCommandEvent& event);
 
 	virtual void OnCloseWindow(wxCloseEvent& event);
 
 	void OnSetTitle( wxCommandEvent& event );
-	void OnDockedMove( wxCommandEvent& event );
 	void OnFlushUnlockerTimer( wxTimerEvent& evt );
 	void OnFlushEvent( wxCommandEvent& event );
 

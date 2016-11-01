@@ -166,7 +166,7 @@ struct Gif_Path {
 	GIF_PATH_STATE state; // Path State
 	Gif_Path_MTVU  mtvu;  // Must be last for saved states
 
-	Gif_Path()  {}
+	Gif_Path()  { Reset(); }
 	~Gif_Path() { _aligned_free(buffer); }
 
 	void Init(GIF_PATH _idx, u32 _buffSize, u32 _buffSafeZone) {
@@ -423,7 +423,7 @@ struct Gif_Unit {
 	tGIF_STAT& stat;
 	GIF_TRANSFER_TYPE lastTranType; // Last Transfer Type
 
-	Gif_Unit() : stat(gifRegs.stat) {
+	Gif_Unit() : gsSIGNAL(), gsFINISH(), stat(gifRegs.stat), lastTranType(GIF_TRANS_INVALID) {
 		gifPath[0].Init(GIF_PATH_1, _1mb*9, _1mb  + _1kb);
 		gifPath[1].Init(GIF_PATH_2, _1mb*9, _1mb  + _1kb);
 		gifPath[2].Init(GIF_PATH_3, _1mb*9, _1mb  + _1kb);
@@ -592,9 +592,11 @@ struct Gif_Unit {
 					break; // Not finished with GS packet
 				}
 				//DevCon.WriteLn("Adding GS Packet for path %d", stat.APATH);
-				AddCompletedGSPacket(gsPack, (GIF_PATH)(stat.APATH-1));
+				if (gifPath[curPath].state == GIF_PATH_WAIT || gifPath[curPath].state == GIF_PATH_IDLE) {
+					AddCompletedGSPacket(gsPack, (GIF_PATH)(stat.APATH - 1));
+				}
+				
 			}
-
 			if (!gsSIGNAL.queued && !gifPath[0].isDone()) {
 				stat.APATH = 1;
 				stat.P1Q = 0;
@@ -620,11 +622,10 @@ struct Gif_Unit {
 				break;
 			}
 		}
-
 		//Some loaders/Refresh Rate selectors and things dont issue "End of Packet" commands
 		//So we look and see if the end of the last tag is all there, if so, stick it in the buffer for the GS :)
 		//(Invisible Screens on Terminator 3 and Growlanser 2/3)
-		if(gifPath[curPath].curOffset == gifPath[curPath].curSize) 
+		if(gifPath[curPath].curOffset == gifPath[curPath].curSize)
 		{
 			FlushToMTGS();
 		}
@@ -650,18 +651,20 @@ struct Gif_Unit {
 	bool CanDoPath2HL() const {
 		return (stat.APATH == 0 || stat.APATH == 2) && CanDoGif();
 	}
-	// Gif DMA - CHECK_GIFREVERSEHACK is a hack for Hot Wheels.
+	// Gif DMA
 	bool CanDoPath3() const {
 		return((stat.APATH == 0 && !Path3Masked()) || stat.APATH == 3) && CanDoGif();
 	}
 
 	bool CanDoP3Slice()const { return stat.IMT == 1 && gifPath[GIF_PATH_3].state == GIF_PATH_IMAGE; }
-	bool CanDoGif() const    { return stat.PSE == 0 && (CHECK_GIFREVERSEHACK ? 1 : stat.DIR == 0) && gsSIGNAL.queued == 0; }
+	bool CanDoGif() const    { return stat.PSE == 0 && stat.DIR == 0 && gsSIGNAL.queued == 0; }
 	//Mask stops the next packet which hasnt started from transferring
 	bool Path3Masked() const { return ((stat.M3R || stat.M3P) && (gifPath[GIF_PATH_3].state == GIF_PATH_IDLE || gifPath[GIF_PATH_3].state == GIF_PATH_WAIT)); }
 
 	void PrintInfo(bool printP1=1, bool printP2=1, bool printP3=1) {
 		u32 a = checkPaths(1,1,1), b = checkQueued(1,1,1);
+		(void)a; // Don't warn about unused variable
+		(void)b;
 		GUNIT_LOG("Gif Unit - LastTransfer = %s, Paths = [%d,%d,%d], Queued = [%d,%d,%d]",
 				   Gif_TransferStr[(lastTranType>>8)&0xf],
 				   !!(a&1),!!(a&2),!!(a&4),!!(b&1),!!(b&2),!!(b&4));

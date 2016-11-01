@@ -44,8 +44,8 @@ using namespace pxSizerFlags;
 Panels::BaseSelectorPanel::BaseSelectorPanel( wxWindow* parent )
 	: BaseApplicableConfigPanel( parent, wxVERTICAL )
 {
-	Connect( wxEVT_COMMAND_DIRPICKER_CHANGED,	wxFileDirPickerEventHandler	(BaseSelectorPanel::OnFolderChanged) );
-	Connect( wxEVT_SHOW,						wxShowEventHandler			(BaseSelectorPanel::OnShow) );
+	Bind(wxEVT_DIRPICKER_CHANGED, &BaseSelectorPanel::OnFolderChanged, this);
+	Bind(wxEVT_SHOW, &BaseSelectorPanel::OnShow, this);
 }
 
 Panels::BaseSelectorPanel::~BaseSelectorPanel() throw()
@@ -105,7 +105,7 @@ Panels::BiosSelectorPanel::BiosSelectorPanel( wxWindow* parent )
 		_("Select folder with PS2 BIOS roms")		// dir picker popup label
 	);
 
-	m_ComboBox->SetFont( wxFont( m_ComboBox->GetFont().GetPointSize()+1, wxFONTFAMILY_MODERN, wxNORMAL, wxNORMAL, false, L"Lucida Console" ) );
+	m_ComboBox->SetFont( wxFont( m_ComboBox->GetFont().GetPointSize()+1, wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false, L"Lucida Console" ) );
 	m_ComboBox->SetMinSize( wxSize( wxDefaultCoord, std::max( m_ComboBox->GetMinSize().GetHeight(), 96 ) ) );
 	
 	//if (InstallationMode != InstallMode_Portable)
@@ -119,7 +119,7 @@ Panels::BiosSelectorPanel::BiosSelectorPanel( wxWindow* parent )
 	*this	+= 8;
 	*this	+= m_FolderPicker	| StdExpand();
 
-	Connect( refreshButton->GetId(), wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(BiosSelectorPanel::OnRefreshSelections) );
+	Bind(wxEVT_BUTTON, &BiosSelectorPanel::OnRefreshSelections, this, refreshButton->GetId());
 }
 
 Panels::BiosSelectorPanel::~BiosSelectorPanel() throw ()

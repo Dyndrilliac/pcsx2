@@ -170,8 +170,8 @@ Panels::CpuPanelEE::CpuPanelEE( wxWindow* parent )
 	m_button_RestoreDefaults = new wxButton(this, wxID_DEFAULT, _("Restore Defaults"));
 	*this += m_button_RestoreDefaults | StdButton();
 
-	Connect( wxID_DEFAULT, wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( CpuPanelEE::OnRestoreDefaults ) );
-	Bind(wxEVT_COMMAND_RADIOBUTTON_SELECTED, &CpuPanelEE::EECache_Event, this);
+	Bind(wxEVT_BUTTON, &CpuPanelEE::OnRestoreDefaults, this, wxID_DEFAULT);
+	Bind(wxEVT_RADIOBUTTON, &CpuPanelEE::EECache_Event, this);
 }
 
 Panels::CpuPanelVU::CpuPanelVU( wxWindow* parent )
@@ -226,7 +226,7 @@ Panels::CpuPanelVU::CpuPanelVU( wxWindow* parent )
 	m_button_RestoreDefaults = new wxButton(this, wxID_DEFAULT, _("Restore Defaults"));
 	*this += m_button_RestoreDefaults | StdButton();
 
-	Connect( wxID_DEFAULT, wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( CpuPanelVU::OnRestoreDefaults ) );
+	Bind(wxEVT_BUTTON, &CpuPanelVU::OnRestoreDefaults, this, wxID_DEFAULT);
 }
 
 void Panels::CpuPanelEE::Apply()
@@ -294,12 +294,6 @@ void Panels::CpuPanelVU::AppStatusEvent_OnSettingsApplied()
 
 void Panels::CpuPanelVU::ApplyConfigToGui( AppConfig& configToApply, int flags )
 {
-
-#ifdef DISABLE_SVU
-	m_panel_VU0->EnableItem( 2, false);
-	m_panel_VU1->EnableItem( 2, false);
-#endif
-
 	Pcsx2Config::RecompilerOptions& recOps( configToApply.EmuOptions.Cpu.Recompiler );
 #ifndef DISABLE_SVU
 	if( recOps.UseMicroVU0 )

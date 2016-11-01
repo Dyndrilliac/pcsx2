@@ -66,7 +66,7 @@ set(pcsx2Sources
 	IopIrq.cpp
 	IopMem.cpp
 	IopSio2.cpp
-#	Mdec.cpp
+	Mdec.cpp
 	Memory.cpp
 	MMI.cpp
 	MTGS.cpp
@@ -137,7 +137,7 @@ set(pcsx2Headers
 	IopHw.h
 	IopMem.h
 	IopSio2.h
-#	Mdec.h
+	Mdec.h
 	MTVU.h
 	Memory.h
 	MemoryTypes.h
@@ -150,7 +150,6 @@ set(pcsx2Headers
 	R5900Exceptions.h
 	R5900.h
 	R5900OpcodeTables.h
-	SamplProf.h
 	SaveState.h
 	Sifcmd.h
 	Sif.h
@@ -301,7 +300,6 @@ set(pcsx2GuiSources
 	gui/Panels/PluginSelectorPanel.cpp
 	gui/Panels/SpeedhacksPanel.cpp
 	gui/Panels/VideoPanel.cpp
-	gui/pxLogTextCtrl.cpp
 	gui/RecentIsoList.cpp
 	gui/Saveslots.cpp
 	gui/SysState.cpp
@@ -397,6 +395,12 @@ set(pcsx2OSXSources
 	Darwin/DarwinFlatFileReader.cpp
 	)
 
+set(pcsx2FreeBSDSources
+	Linux/LnxConsolePipe.cpp
+	Linux/LnxKeyCodes.cpp
+	Darwin/DarwinFlatFileReader.cpp
+	)
+
 # Linux headers
 set(pcsx2LinuxHeaders
 	)
@@ -404,6 +408,7 @@ set(pcsx2LinuxHeaders
 # ps2 sources
 set(pcsx2ps2Sources
 	ps2/BiosTools.cpp
+	ps2/pgif.cpp
 	ps2/LegacyDmac.cpp
 	ps2/Iop/IopHwRead.cpp
 	ps2/Iop/IopHwWrite.cpp)
@@ -412,6 +417,7 @@ set(pcsx2ps2Sources
 set(pcsx2ps2Headers
 	ps2/BiosTools.h
 	ps2/eeHwTraceLog.inl
+	ps2/pgif.h
 	ps2/HwInternal.h
 	ps2/Iop/IopHw_Internal.h)
 
@@ -470,7 +476,6 @@ set(pcsx2WindowsSources
 	windows/DwmSetup.cpp
 	windows/ini.cpp
 	windows/PatchBrowser.cpp
-	windows/SamplProf.cpp
 	windows/WinCompressNTFS.cpp
 	windows/WinConsolePipe.cpp
 	windows/WinSysExec.cpp)
@@ -615,6 +620,12 @@ if(APPLE)
 		${pcsx2LinuxHeaders})
 endif()
 
+if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+	set(Platform
+		${pcsx2FreeBSDSources}
+		${pcsx2LinuxHeaders})
+endif()
+
 set(pcsx2FinalSources
 	${Common}
 	${Platform}
@@ -629,6 +640,28 @@ set(pcsx2FinalLibs
     ${AIO_LIBRARIES}
     ${GCOV_LIBRARIES}
 )
+
+if(BUILTIN_GS)
+    set(pcsx2FinalLibs "${pcsx2FinalLibs} GSdx")
+endif()
+if(BUILTIN_PAD)
+    set(pcsx2FinalLibs "${pcsx2FinalLibs} onepad-1.2.0")
+endif()
+if(BUILTIN_SPU2)
+    set(pcsx2FinalLibs "${pcsx2FinalLibs} spu2x-2.0.0")
+endif()
+if(BUILTIN_USB)
+    set(pcsx2FinalLibs "${pcsx2FinalLibs} USBnull-0.7.0")
+endif()
+if(BUILTIN_FW)
+    set(pcsx2FinalLibs "${pcsx2FinalLibs} FWnull-0.7.0")
+endif()
+if(BUILTIN_DEV)
+    set(pcsx2FinalLibs "${pcsx2FinalLibs} dev9null-0.5.0")
+endif()
+if(BUILTIN_CDVD)
+    set(pcsx2FinalLibs "${pcsx2FinalLibs} CDVDnull")
+endif()
 
 # additonal include directories
 include_directories(

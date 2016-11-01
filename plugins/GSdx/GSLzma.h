@@ -18,22 +18,25 @@
  *
  */
 
-#ifdef __linux__
+#if defined(__unix__)
 
 #ifdef LZMA_SUPPORTED
 #include <lzma.h>
 #endif
 
 class GSDumpFile {
+	FILE*		m_repack_fp;
+
 	protected:
 	FILE*		m_fp;
 
+	void Repack(void* ptr, size_t size);
 
 	public:
 	virtual bool IsEof() = 0;
 	virtual void Read(void* ptr, size_t size) = 0;
 
-	GSDumpFile(char* filename);
+	GSDumpFile(char* filename, const char* repack_filename);
 	virtual ~GSDumpFile();
 };
 
@@ -53,7 +56,7 @@ class GSDumpLzma : public GSDumpFile {
 
 	public:
 
-	GSDumpLzma(char* filename);
+	GSDumpLzma(char* filename, const char* repack_filename);
 	virtual ~GSDumpLzma();
 
 	bool IsEof();
@@ -74,7 +77,7 @@ class GSDumpRaw : public GSDumpFile {
 
 	public:
 
-	GSDumpRaw(char* filename);
+	GSDumpRaw(char* filename, const char* repack_filename);
 	virtual ~GSDumpRaw();
 
 	bool IsEof();

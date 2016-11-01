@@ -2,7 +2,9 @@
 #						Search all libraries on the system
 #-------------------------------------------------------------------------------
 ## Use cmake package to find module
-find_package(ALSA)
+if (Linux)
+    find_package(ALSA)
+endif()
 find_package(Gettext) # translation tool
 if(EXISTS ${PROJECT_SOURCE_DIR}/.git)
     find_package(Git)
@@ -41,10 +43,18 @@ endif()
 # FindwxWidgets only searches for wx-config.
 if(CMAKE_CROSSCOMPILING)
     # May need to fix the filenames for lib32-wx3.0.
-    if(${PCSX2_TARGET_ARCHITECTURES} MATCHES "i386" AND EXISTS "/usr/bin/wx-config32-3.0")
-        set(wxWidgets_CONFIG_EXECUTABLE "/usr/bin/wx-config32-3.0")
+    if(${PCSX2_TARGET_ARCHITECTURES} MATCHES "i386")
+        if (Fedora AND EXISTS "/usr/bin/wx-config-3.0")
+            set(wxWidgets_CONFIG_EXECUTABLE "/usr/bin/wx-config-3.0")
+        endif()
+        if (EXISTS "/usr/bin/wx-config32-3.0")
+            set(wxWidgets_CONFIG_EXECUTABLE "/usr/bin/wx-config32-3.0")
+        endif()
     endif()
 else()
+    if (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+        set(wxWidgets_CONFIG_EXECUTABLE "/usr/local/bin/wxgtk2u-3.0-config")
+    endif()
     if(EXISTS "/usr/bin/wx-config-3.0")
         set(wxWidgets_CONFIG_EXECUTABLE "/usr/bin/wx-config-3.0")
     endif()

@@ -42,9 +42,9 @@ class GSCapture
 	CComPtr<IGraphBuilder> m_graph;
 	CComPtr<IBaseFilter> m_src;
 
-	#elif __linux__
+	#elif defined(__unix__)
 
-	vector<GSPng::Worker*> m_workers;
+	std::vector<std::unique_ptr<GSPng::Worker>> m_workers;
 	int m_compression_level;
 
 	#endif

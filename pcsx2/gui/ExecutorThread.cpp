@@ -37,7 +37,7 @@ ConsoleLogSource_Event::ConsoleLogSource_Event()
 {
 	static const TraceLogDescriptor myDesc =
 	{
-		L"SysEvents",	L"SysVM Control Events",
+		L"SysEvents",	L"S&ysVM Control Events",
 		pxLt("Logs events as they are passed to the PS2 virtual machine."),
 	};
 	
@@ -148,7 +148,7 @@ void SysExecEvent::_DoInvokeEvent()
 // Posts an empty result to the invoking context/thread of this message, if one exists.
 // If the invoking thread posted the event in non-blocking fashion then no action is
 // taken.
-void SysExecEvent::PostResult() const 
+void SysExecEvent::PostResult() const
 {
 	if( m_sync ) m_sync->PostResult();
 }
@@ -156,10 +156,9 @@ void SysExecEvent::PostResult() const
 // --------------------------------------------------------------------------------------
 //  pxEvtQueue Implementations
 // --------------------------------------------------------------------------------------
-pxEvtQueue::pxEvtQueue()
+pxEvtQueue::pxEvtQueue() :
+	m_OwnerThreadId(), m_Quitting(false), m_qpc_Start(0)
 {
-	m_Quitting = false;
-	m_qpc_Start = 0;
 }
 
 // Puts the event queue into Shutdown mode, which does *not* immediately stop nor cancel
@@ -301,7 +300,7 @@ void pxEvtQueue::PostIdleEvent( SysExecEvent* evt )
 
 	pxEvtLog.Write( this, evt, pxsFmt(L"Posting event! (pending=%d, idle=%d) [idle]", m_pendingEvents.size(), m_idleEvents.size()) );
 
-	if( m_pendingEvents.size() == 0)
+	if( m_pendingEvents.empty() )
 	{
 		m_pendingEvents.push_back( evt );
 		m_wakeup.Post();

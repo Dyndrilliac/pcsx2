@@ -27,9 +27,14 @@
 
 class GSRendererSW : public GSRenderer
 {
+	static GSVector4 m_pos_scale;
+#if _M_SSE >= 0x501
+	static GSVector8 m_pos_scale2;
+#endif
+
 	class SharedData : public GSDrawScanline::SharedData
 	{
-		__aligned(struct, 16) TextureLevel 
+		struct alignas(16) TextureLevel
 		{
 			GSVector4i r; 
 			GSTextureCacheSW::Texture* t;
@@ -78,7 +83,8 @@ protected:
 	void Reset();
 	void VSync(int field);
 	void ResetDevice();
-	GSTexture* GetOutput(int i);
+	GSTexture* GetOutput(int i, int& y_offset);
+	GSTexture* GetFeedbackOutput();
 
 	void Draw();
 	void Queue(shared_ptr<GSRasterizerData>& item);
@@ -95,6 +101,8 @@ protected:
 	bool GetScanlineGlobalData(SharedData* data);
 
 public:
+	static void InitVectors();
+
 	GSRendererSW(int threads);
 	virtual ~GSRendererSW();
 };

@@ -1,37 +1,5 @@
 //#version 420 // Keep it for text editor detection
 
-layout(std140, binding = 20) uniform cb20
-{
-    vec2 VertexScale;
-    vec2 VertexOffset;
-    vec2 _removed_TextureScale;
-    vec2 PointSize;
-};
-
-// Warning duplicated in both GLSL file
-layout(std140, binding = 21) uniform cb21
-{
-    vec3 FogColor;
-    float AREF;
-
-    vec4 WH;
-
-    vec2 TA;
-    float _pad0;
-    float Af;
-
-    uvec4 MskFix;
-
-    uvec4 FbMask;
-
-    vec4 HalfTexel;
-
-    vec4 MinMax;
-
-    vec2 TextureScale;
-    vec2 TC_OffsetHack;
-};
-
 #ifdef VERTEX_SHADER
 layout(location = 0) in vec2  i_st;
 layout(location = 2) in vec4  i_c;
@@ -41,6 +9,9 @@ layout(location = 5) in uint  i_z;
 layout(location = 6) in uvec2 i_uv;
 layout(location = 7) in vec4  i_f;
 
+#if !defined(BROKEN_DRIVER) && defined(GL_ARB_enhanced_layouts) && GL_ARB_enhanced_layouts
+layout(location = 0)
+#endif
 out SHADER
 {
     vec4 t_float;
@@ -49,26 +20,11 @@ out SHADER
     flat vec4 fc;
 } VSout;
 
-#define VSout_c (VSout.c)
-#define VSout_fc (VSout.fc)
-
-out gl_PerVertex {
-    vec4 gl_Position;
-    float gl_PointSize;
-#if !pGL_ES
-    float gl_ClipDistance[1];
-#endif
-};
-
-#ifdef ZERO_TO_ONE_DEPTH
 const float exp_min32 = exp2(-32.0f);
-#else
-const float exp_min31 = exp2(-31.0f);
-#endif
 
 void texture_coord()
 {
-    vec2 uv = (VS_WILDHACK == 1) ? vec2(i_uv &  uvec2(0x3FEF, 0x3FEF)) : vec2(i_uv);
+    vec2 uv = vec2(i_uv);
 
     // Float coordinate
     VSout.t_float.xy = i_st;
@@ -82,13 +38,7 @@ void texture_coord()
 
 void vs_main()
 {
-    highp uint z;
-    if(VS_BPPZ == 1) // 24
-        z = i_z & uint(0xffffff);
-    else if(VS_BPPZ == 2) // 16
-        z = i_z & uint(0xffff);
-    else
-        z = i_z;
+    highp uint z = i_z & DepthMask;
 
     // pos -= 0.05 (1/320 pixel) helps avoiding rounding problems (integral part of pos is usually 5 digits, 0.05 is about as low as we can go)
     // example: ceil(afterseveralvertextransformations(y = 133)) => 134 => line 133 stays empty
@@ -99,26 +49,14 @@ void vs_main()
     p.xy = vec2(i_p) - vec2(0.05f, 0.05f);
     p.xy = p.xy * VertexScale - VertexOffset;
     p.w = 1.0f;
-#ifdef ZERO_TO_ONE_DEPTH
-    if(VS_LOGZ == 1) {
-        p.z = max(0.0f, log2(float(z))) / 32.0f;
-    } else {
-        p.z = float(z) * exp_min32;
-    }
-#else
-    if(VS_LOGZ == 1) {
-        p.z = max(0.0f, log2(float(z))) / 31.0f - 1.0f;
-    } else {
-        p.z = float(z) * exp_min31 - 1.0f;
-    }
-#endif
+    p.z = float(z) * exp_min32;
 
     gl_Position = p;
 
     texture_coord();
 
-    VSout_c = i_c;
-    VSout_fc = i_c;
+    VSout.c = i_c;
+    VSout.fc = i_c;
     VSout.t_float.z = i_f.x; // pack for with texture
 }
 
@@ -126,24 +64,9 @@ void vs_main()
 
 #ifdef GEOMETRY_SHADER
 
-in gl_PerVertex {
-    vec4 gl_Position;
-    float gl_PointSize;
-#if !pGL_ES
-    float gl_ClipDistance[1];
+#if !defined(BROKEN_DRIVER) && defined(GL_ARB_enhanced_layouts) && GL_ARB_enhanced_layouts
+layout(location = 0)
 #endif
-} gl_in[];
-//in int gl_PrimitiveIDIn;
-
-out gl_PerVertex {
-    vec4 gl_Position;
-    float gl_PointSize;
-#if !pGL_ES
-    float gl_ClipDistance[1];
-#endif
-};
-//out int gl_PrimitiveID;
-
 in SHADER
 {
     vec4 t_float;
@@ -152,6 +75,9 @@ in SHADER
     flat vec4 fc;
 } GSin[];
 
+#if !defined(BROKEN_DRIVER) && defined(GL_ARB_enhanced_layouts) && GL_ARB_enhanced_layouts
+layout(location = 0)
+#endif
 out SHADER
 {
     vec4 t_float;
@@ -159,12 +85,6 @@ out SHADER
     vec4 c;
     flat vec4 fc;
 } GSout;
-
-layout(std140, binding = 22) uniform cb22
-{
-    vec4 rt_size;
-};
-
 
 struct vertex
 {
@@ -195,34 +115,105 @@ layout(lines) in;
 #endif
 layout(triangle_strip, max_vertices = 6) out;
 
+#if GS_POINT == 1
+
+void gs_main()
+{
+    // Transform a point to a NxN sprite
+    vertex point = vertex(GSin[0].t_float, GSin[0].t_int, GSin[0].c);
+
+    // Get new position
+    vec4 lt_p = gl_in[0].gl_Position;
+    vec4 rb_p = gl_in[0].gl_Position + vec4(PointSize.x, PointSize.y, 0.0f, 0.0f);
+    vec4 lb_p = rb_p;
+    vec4 rt_p = rb_p;
+    lb_p.x    = lt_p.x;
+    rt_p.y    = lt_p.y;
+
+    // Triangle 1
+    gl_Position = lt_p;
+    out_vertex(point);
+
+    gl_Position = lb_p;
+    out_vertex(point);
+
+    gl_Position = rt_p;
+    out_vertex(point);
+    EndPrimitive();
+
+    // Triangle 2
+    gl_Position = lb_p;
+    out_vertex(point);
+
+    gl_Position = rt_p;
+    out_vertex(point);
+
+    gl_Position = rb_p;
+    out_vertex(point);
+    EndPrimitive();
+}
+
+#elif GS_LINE == 1
+
+void gs_main()
+{
+    // Transform a line to a thick line-sprite
+    vertex right = vertex(GSin[1].t_float, GSin[1].t_int, GSin[1].c);
+    vertex left  = vertex(GSin[0].t_float, GSin[0].t_int, GSin[0].c);
+    vec4 lt_p = gl_in[0].gl_Position;
+    vec4 rt_p = gl_in[1].gl_Position;
+
+    // Potentially there is faster math
+    vec2 line_vector = normalize(rt_p.xy - lt_p.xy);
+    vec2 line_normal = vec2(line_vector.y, -line_vector.x);
+    vec2 line_width  = line_normal * PointSize;
+
+    vec4 lb_p = gl_in[0].gl_Position + vec4(line_width, 0.0f, 0.0f);
+    vec4 rb_p = gl_in[1].gl_Position + vec4(line_width, 0.0f, 0.0f);
+
+    // Triangle 1
+    gl_Position = lt_p;
+    out_vertex(left);
+
+    gl_Position = lb_p;
+    out_vertex(left);
+
+    gl_Position = rt_p;
+    out_vertex(right);
+    EndPrimitive();
+
+    // Triangle 2
+    gl_Position = lb_p;
+    out_vertex(left);
+
+    gl_Position = rt_p;
+    out_vertex(right);
+
+    gl_Position = rb_p;
+    out_vertex(right);
+    EndPrimitive();
+}
+
+#else
+
 void gs_main()
 {
     // left top     => GSin[0];
     // right bottom => GSin[1];
-#if GS_POINT == 1
-    vertex rb = vertex(GSin[0].t_float, GSin[0].t_int, GSin[0].c);
-#else
     vertex rb = vertex(GSin[1].t_float, GSin[1].t_int, GSin[1].c);
-#endif
     vertex lt = vertex(GSin[0].t_float, GSin[0].t_int, GSin[0].c);
 
-#if GS_POINT == 1
-    vec4 rb_p = gl_in[0].gl_Position + vec4(PointSize.x, PointSize.y, 0.0f, 0.0f);
-#else
     vec4 rb_p = gl_in[1].gl_Position;
-#endif
     vec4 lb_p = rb_p;
     vec4 rt_p = rb_p;
     vec4 lt_p = gl_in[0].gl_Position;
 
-#if GS_POINT == 0
     // flat depth
     lt_p.z = rb_p.z;
     // flat fog and texture perspective
     lt.t_float.zw = rb.t_float.zw;
     // flat color
     lt.c = rb.c;
-#endif
 
     // Swap texture and position coordinate
     vertex lb    = rb;
@@ -259,5 +250,7 @@ void gs_main()
     out_vertex(rb);
     EndPrimitive();
 }
+
+#endif
 
 #endif

@@ -21,7 +21,7 @@
 
 #include "GSWnd.h"
 
-#if defined(__linux__) && defined(EGL_SUPPORTED)
+#if defined(__unix__) && defined(EGL_SUPPORTED)
 #include <X11/Xlib.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -37,6 +37,7 @@ class GSWndEGL : public GSWndGL
 
 	void CreateContext(int major, int minor);
 	void CheckContext();
+	void BindAPI();
 
 	void OpenEGLDisplay();
 	void CloseEGLDisplay();

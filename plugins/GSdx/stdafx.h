@@ -37,16 +37,17 @@
 #include <commctrl.h>
 #include <commdlg.h>
 #include <shellapi.h>
+#include <d3dcompiler.h>
 #include <d3d11.h>
-#include <d3dx11.h>
 #include <d3d9.h>
-#include <d3dx9.h>
 #include <comutil.h>
 #include <atlcomcli.h>
 
 #define D3DCOLORWRITEENABLE_RGBA (D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA)
-#define D3D11_SHADER_MACRO D3D10_SHADER_MACRO
-#define ID3D11Blob ID3D10Blob
+
+#else
+
+#include <fcntl.h>
 
 #endif
 
@@ -82,17 +83,18 @@ typedef int64 sint64;
 
 // stdc
 
-#include <stddef.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <math.h>
-#include <float.h>
-#include <time.h>
-#include <limits.h>
+#include <cstddef>
+#include <cstdio>
+#include <cstdarg>
+#include <cstdlib>
+#include <cmath>
+#include <cfloat>
+#include <ctime>
+#include <climits>
+#include <cstring>
+#include <cassert>
 
 #include <complex>
-#include <cstring>
 #include <string>
 #include <vector>
 #include <list>
@@ -200,25 +202,25 @@ using namespace stdext;
 #endif
 
 #ifdef _MSC_VER
+#if _MSC_VER < 1900
+    #define alignas(n) __declspec(align(n))
+#endif
 
-    #define __aligned(t, n) __declspec(align(n)) t
-
-    #define EXPORT_C_(type) extern "C" __declspec(dllexport) type __stdcall
+    #define EXPORT_C_(type) extern "C" type __stdcall
     #define EXPORT_C EXPORT_C_(void)
 
-    #define ALIGN_STACK(n) __aligned(int, n) __dummy;
+    #define ALIGN_STACK(n) alignas(n) int dummy__;
 
 #else
 
-    #define __aligned(t, n) t __attribute__((aligned(n)))
-    #define __fastcall __attribute__((fastcall))
+    #ifndef __fastcall
+        #define __fastcall __attribute__((fastcall))
+    #endif
 
     #define EXPORT_C_(type) extern "C" __attribute__((stdcall,externally_visible,visibility("default"))) type
     #define EXPORT_C EXPORT_C_(void)
 
     #ifdef __GNUC__
-
-        #include "assert.h"
         #define __forceinline __inline__ __attribute__((always_inline,unused))
         // #define __forceinline __inline__ __attribute__((__always_inline__,__gnu_inline__))
         #define __assume(c) do { if (!(c)) __builtin_unreachable(); } while(0)
@@ -230,21 +232,12 @@ using namespace stdext;
     #else
 
         // TODO Check clang behavior
-        #define ALIGN_STACK(n) __aligned(int, n) __dummy;
+        #define ALIGN_STACK(n) alignas(n) int dummy__;
 
     #endif
 
 
 #endif
-
-extern string format(const char* fmt, ...);
-
-struct delete_object {template<class T> void operator()(T& p) {delete p;}};
-struct delete_first {template<class T> void operator()(T& p) {delete p.first;}};
-struct delete_second {template<class T> void operator()(T& p) {delete p.second;}};
-struct aligned_free_object {template<class T> void operator()(T& p) {_aligned_free(p);}};
-struct aligned_free_first {template<class T> void operator()(T& p) {_aligned_free(p.first);}};
-struct aligned_free_second {template<class T> void operator()(T& p) {_aligned_free(p.second);}};
 
 #define countof(a) (sizeof(a) / sizeof(a[0]))
 
@@ -270,16 +263,7 @@ struct aligned_free_second {template<class T> void operator()(T& p) {_aligned_fr
 
 #endif
 
-#if defined(_DEBUG) //&& defined(_MSC_VER)
-
-	#include <assert.h>
-	#define ASSERT assert
-
-#else
-
-	#define ASSERT(exp) ((void)0)
-
-#endif
+#define ASSERT assert
 
 #ifdef __x86_64__
 
@@ -412,8 +396,20 @@ struct aligned_free_second {template<class T> void operator()(T& p) {_aligned_fr
 
 #endif
 
+extern string format(const char* fmt, ...);
+
+struct delete_object {template<class T> void operator()(T& p) {delete p;}};
+struct delete_first {template<class T> void operator()(T& p) {delete p.first;}};
+struct delete_second {template<class T> void operator()(T& p) {delete p.second;}};
+struct aligned_free_object {template<class T> void operator()(T& p) {_aligned_free(p);}};
+struct aligned_free_first {template<class T> void operator()(T& p) {_aligned_free(p.first);}};
+struct aligned_free_second {template<class T> void operator()(T& p) {_aligned_free(p.second);}};
+
 extern void* vmalloc(size_t size, bool code);
 extern void vmfree(void* ptr, size_t size);
+
+extern void* fifo_alloc(size_t size, size_t repeat);
+extern void fifo_free(void* ptr, size_t size, size_t repeat);
 
 #ifdef _WIN32
 
@@ -427,22 +423,44 @@ extern void vmfree(void* ptr, size_t size);
 
 #endif
 
+// Note: GL messages are present in common code, so in all renderers.
+
 #define GL_INSERT(type, code, sev, ...) \
 	do if (glDebugMessageInsert) glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, type, code, sev, -1, format(__VA_ARGS__).c_str()); while(0);
 
-// Except apple any sane driver support this extension
 #if defined(_DEBUG)
 #define GL_CACHE(...) GL_INSERT(GL_DEBUG_TYPE_OTHER, 0xFEAD, GL_DEBUG_SEVERITY_NOTIFICATION, __VA_ARGS__)
 #else
 #define GL_CACHE(...) (0);
 #endif
 
+#if defined(ENABLE_TRACE_REG) && defined(_DEBUG)
+#define GL_REG(...) GL_INSERT(GL_DEBUG_TYPE_OTHER, 0xB0B0, GL_DEBUG_SEVERITY_NOTIFICATION, __VA_ARGS__)
+#else
+#define GL_REG(...) (0);
+#endif
+
+#if defined(ENABLE_EXTRA_LOG) && defined(_DEBUG)
+#define GL_DBG(...) GL_INSERT(GL_DEBUG_TYPE_OTHER, 0xD0D0, GL_DEBUG_SEVERITY_NOTIFICATION, __VA_ARGS__)
+#else
+#define GL_DBG(...) (0);
+#endif
+
 #if defined(ENABLE_OGL_DEBUG)
-#define GL_PUSH(...)	do if (glPushDebugGroup) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0xBAD, -1, format(__VA_ARGS__).c_str()); while(0);
+struct GLAutoPop {
+	~GLAutoPop() {
+		if (glPopDebugGroup)
+			glPopDebugGroup();
+	}
+};
+
+#define GL_PUSH_(...)	do if (glPushDebugGroup) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0xBAD, -1, format(__VA_ARGS__).c_str()); while(0);
+#define GL_PUSH(...)	do if (glPushDebugGroup) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0xBAD, -1, format(__VA_ARGS__).c_str()); while(0); GLAutoPop gl_auto_pop;
 #define GL_POP()        do if (glPopDebugGroup) glPopDebugGroup(); while(0);
 #define GL_INS(...)		GL_INSERT(GL_DEBUG_TYPE_ERROR, 0xDEAD, GL_DEBUG_SEVERITY_MEDIUM, __VA_ARGS__)
 #define GL_PERF(...)	GL_INSERT(GL_DEBUG_TYPE_PERFORMANCE, 0xFEE1, GL_DEBUG_SEVERITY_NOTIFICATION, __VA_ARGS__)
 #else
+#define GL_PUSH_(...) (0);
 #define GL_PUSH(...) (0);
 #define GL_POP()     (0);
 #define GL_INS(...)  (0);

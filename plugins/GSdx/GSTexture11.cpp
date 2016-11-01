@@ -46,11 +46,11 @@ GSTexture11::GSTexture11(ID3D11Texture2D* texture)
 	m_msaa = m_desc.SampleDesc.Count > 1;
 }
 
-bool GSTexture11::Update(const GSVector4i& r, const void* data, int pitch)
+bool GSTexture11::Update(const GSVector4i& r, const void* data, int pitch, int layer)
 {
 	if(m_dev && m_texture)
 	{
-		D3D11_BOX box = {r.left, r.top, 0, r.right, r.bottom, 1};
+		D3D11_BOX box = { (UINT)r.left, (UINT)r.top, 0U, (UINT)r.right, (UINT)r.bottom, 1U };
 
 		m_ctx->UpdateSubresource(m_texture, 0, &box, data, pitch, 0);
 
@@ -60,7 +60,7 @@ bool GSTexture11::Update(const GSVector4i& r, const void* data, int pitch)
 	return false;
 }
 
-bool GSTexture11::Map(GSMap& m, const GSVector4i* r)
+bool GSTexture11::Map(GSMap& m, const GSVector4i* r, int layer)
 {
 	if(r != NULL)
 	{
@@ -93,7 +93,7 @@ void GSTexture11::Unmap()
 	}
 }
 
-bool GSTexture11::Save(const string& fn, bool user_image, bool dds)
+bool GSTexture11::Save(const string& fn, bool dds)
 {
 	CComPtr<ID3D11Texture2D> res;
 	D3D11_TEXTURE2D_DESC desc;
@@ -179,7 +179,7 @@ bool GSTexture11::Save(const string& fn, bool user_image, bool dds)
 		return false;
 	}
 
-	int compression = user_image ? Z_BEST_COMPRESSION : theApp.GetConfig("png_compression_level", Z_BEST_SPEED);
+	int compression = theApp.GetConfigI("png_compression_level");
 	bool success = GSPng::Save(format, fn, static_cast<uint8*>(sm.pData), desc.Width, desc.Height, sm.RowPitch, compression);
 
 	m_ctx->Unmap(res, 0);
